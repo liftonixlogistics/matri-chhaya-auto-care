@@ -220,7 +220,6 @@ let smokeEmitting=false;
 let smokePrevFrame=0;
 let smokeLastDraw=0;
 let smokeSpawnDebt=0;
-let smokeFrame=0;
 let smokeWidth=0,smokeHeight=0;
 const smokeMaxParticles=74;
 function resizeSmoke() {
@@ -262,10 +261,11 @@ function spawnTyrePuff() {
 function smokeStep(now) {
   if(!smokeCtx)return;
   if(!smokeRunning){return;}
+  // ~30 fps cap keeps the smartphone GPU and CPU workload low.
+  // Measure elapsed time since the LAST DRAW, not the previous rAF.
+  if(now-smokeLastDraw<29){requestAnimationFrame(smokeStep);return;}
   const dt=Math.min(Math.max(now-smokePrevFrame,0),50);
   smokePrevFrame=now;
-  // ~30 fps cap keeps the smartphone GPU and CPU workload low.
-  if(now-smokeLastDraw<29){requestAnimationFrame(smokeStep);return;}
   smokeLastDraw=now;
   const elapsed=now-wheelStartTime;
   if(smokeEmitting){
