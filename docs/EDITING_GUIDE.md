@@ -12,7 +12,8 @@ You can edit the website directly in GitHub's **main** branch. Vercel automatica
 | Scrolling orange bar speed | `src/config/animation.js` -> `marqueePixelsPerSecond` |
 | Service list and the quote options | `src/data/services.js` |
 | Main text, photo links, or section layout | `index.html` |
-| General design / mobile styles | `src/styles/site.css` |
+| Colours, fonts, general design | `src/styles/site.css` |
+| Tablet and smartphone layout | `src/styles/responsive.css` |
 | Wheel glow, smoke positioning, TOUCH styling | `src/styles/interactions.css` |
 | Enquiry and WhatsApp behavior | `src/scripts/features/enquiry.js` |
 | Wheel burnout behavior | `src/scripts/features/wheel-lab.js` |
@@ -45,6 +46,7 @@ Image URLs are currently in `index.html` and in the `background-image` rule for 
 ## Important developer rules
 
 - Do not edit the old `script.js` or `styles.css`; those files were replaced.
+- Keep the CSS loading order: site.css → responsive.css → interactions.css.
 - Keep all `id` attributes on interactive elements in `index.html`, as JavaScript uses them.
 - `src/scripts/main.js` is the entry point. It initializes each feature once.
 - Each `src/scripts/features/*.js` file owns its own feature; avoid adding unrelated logic.

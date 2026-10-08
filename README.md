@@ -35,7 +35,8 @@ src/
       before-after.js           # Comparison slider
       enquiry.js                # Service selections & WhatsApp draft
   styles/
-    site.css                    # Base layout and mobile responsiveness
+    site.css                    # Base styles and design tokens
+    responsive.css              # Tablet and smartphone layout
     interactions.css            # Touch controls, heat glow and smoke visuals
 docs/
   EDITING_GUIDE.md              # Where to edit things
