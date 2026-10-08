@@ -167,7 +167,7 @@ let wheelStartTime = 0;
 let wheelPrevFrame = 0;
 let wheelRaf = 0;
 let wheelBrakeTimer = 0;
-const smokeDelay = 2550;
+const smokeDelay = 2900;
 
 // Pre-render irregular translucent smoke textures ONCE.
 // Small scale noise adds broken, wispy edges instead of flat gradient circles.
@@ -190,7 +190,7 @@ function makeSmokeTexture(variant) {
   sprite.width=sprite.height=72;
   const ctx=sprite.getContext("2d");
   const pixels=ctx.createImageData(72,72);
-  const shades=[104,124,146,157];
+  const shades=[91,107,121,135];
   for(let y=0;y<72;y++)for(let x=0;x<72;x++){
     const nx=(x-35.5)/35.5,ny=(y-35.5)/35.5;
     const angle=Math.atan2(ny,nx);
@@ -221,7 +221,7 @@ let smokePrevFrame=0;
 let smokeLastDraw=0;
 let smokeSpawnDebt=0;
 let smokeWidth=0,smokeHeight=0;
-const smokeMaxParticles=74;
+const smokeMaxParticles=52;
 function resizeSmoke() {
   if(!smokeCtx)return;
   const r=wheelScene.getBoundingClientRect();
@@ -236,26 +236,28 @@ if(smokeCtx){
   resizeSmoke();
   new ResizeObserver(resizeSmoke).observe(wheelScene);
 }
-// Both emitters sit by the tyre's lower edges (the contact area).
-// Clouds drift outward/up rather than spreading across the full website.
+// One contact patch ONLY, at the lower-right edge of the tyre.
+// The puff starts beside the rubber/ground contact and trails RIGHT,
+// slightly upward, like a controlled rear-tyre burnout.
+// Coordinates are responsive to wheel size so this works on phones.
 function spawnTyrePuff() {
   const wheelRect=wheelButton.getBoundingClientRect();
   const sceneRect=wheelScene.getBoundingClientRect();
   const cx=wheelRect.left-sceneRect.left+wheelRect.width/2;
   const cy=wheelRect.top-sceneRect.top+wheelRect.height/2;
   const radius=wheelRect.width/2;
-  const side=Math.random()<.5?-1:1;
-  const size=15+Math.random()*22;
+  const sizeScale=Math.max(.74,Math.min(1.2,sceneRect.width/390));
+  const size=(10+Math.random()*13)*sizeScale;
   smokeParticles.push({
-    x:cx+side*radius*(.61+Math.random()*.16),
-    y:cy+radius*(.60+Math.random()*.16),
-    vx:side*(20+Math.random()*34)+(Math.random()-.5)*10,
-    vy:-26-Math.random()*37,
-    size,age:0,life:850+Math.random()*730,
+    // Emission remains at ONE point under the bottom-right of the tyre.
+    x:cx+radius*.35+(Math.random()-.5)*5,
+    y:cy+radius*.96+(Math.random()-.5)*4,
+    vx:(29+Math.random()*33)*sizeScale,
+    vy:-(3+Math.random()*14)*sizeScale,
+    size,age:0,life:820+Math.random()*680,
     sway:Math.random()*Math.PI*2,
-    spin:(Math.random()-.5)*.6,
     texture:smokeTextures[Math.floor(Math.random()*smokeTextures.length)],
-    alpha:.63+Math.random()*.26
+    alpha:.69+Math.random()*.23
   });
 }
 function smokeStep(now) {
@@ -269,7 +271,7 @@ function smokeStep(now) {
   smokeLastDraw=now;
   const elapsed=now-wheelStartTime;
   if(smokeEmitting){
-    smokeSpawnDebt+=(25+Math.min(14,Math.max(0,(elapsed-smokeDelay)/140)))*dt/1000;
+    smokeSpawnDebt+=(23+Math.min(8,Math.max(0,(elapsed-smokeDelay)/400)))*dt/1000;
     while(smokeSpawnDebt>=1 && smokeParticles.length<smokeMaxParticles){
       spawnTyrePuff();smokeSpawnDebt--;
     }
@@ -281,19 +283,20 @@ function smokeStep(now) {
     p.age+=dt;
     if(p.age>=p.life){smokeParticles.splice(i,1);continue;}
     const seconds=dt/1000;
-    p.x+=p.vx*seconds;
-    p.y+=p.vy*seconds;
-    p.sway+=seconds*1.9;
     const t=p.age/p.life;
-    const fadeIn=Math.min(1,p.age/135);
-    const fadeOut=Math.pow(1-t,1.45);
+    // Tiny random turbulence while the cloud drifts away from the tyre.
+    p.x+=(p.vx+(Math.sin(p.sway)*6))*seconds;
+    p.y+=(p.vy-18*t)*seconds;
+    p.sway+=seconds*2.1;
+    const fadeIn=Math.min(1,p.age/95);
+    const fadeOut=Math.pow(Math.max(0,1-t),1.65);
     const opacity=fadeIn*fadeOut*p.alpha;
-    const grow=p.size*(1+t*.85);
+    const grow=p.size*(1+t*1.45);
     smokeCtx.globalAlpha=opacity;
     smokeCtx.drawImage(p.texture,
-      p.x+Math.sin(p.sway)*2-grow/2,
+      p.x+Math.sin(p.sway)*1.7-grow/2,
       p.y-grow/2,
-      grow, grow*.86);
+      grow, grow*.84);
   }
   smokeCtx.globalAlpha=1;
   if(smokeEmitting||smokeParticles.length){
@@ -306,6 +309,9 @@ function smokeStep(now) {
 function startSmoke() {
   if(!smokeCtx||prefersLessMotion.matches||smokeEmitting)return;
   smokeEmitting=true;
+  smokeSpawnDebt=0;
+  spawnTyrePuff();
+  spawnTyrePuff();
   wheelScene.classList.add("is-smoking");
   wheelIndicator.textContent="● TYRE SMOKE — RELEASE TO BRAKE";
   if(!smokeRunning){
@@ -321,7 +327,7 @@ function stopSmoke() {
   wheelScene.classList.remove("is-smoking");
   // Leave a short natural wisp after braking rather than
   // cutting the smoke off abruptly; no new puffs are created.
-  for(const p of smokeParticles)p.life=Math.min(p.life,p.age+600);
+  for(const p of smokeParticles)p.life=Math.min(p.life,p.age+460);
 }
 function wheelAnimate(now) {
   if(!wheelHolding)return;
@@ -355,7 +361,7 @@ function stopWheel() {
   wheelIndicator.textContent="✓ BRAKED — PRESS & HOLD AGAIN";
   wheelBrakeTimer=window.setTimeout(()=>{
     wheelScene.classList.remove("is-braking");
-    wheelIndicator.textContent="↗ PRESS & HOLD TO SPIN";
+    wheelIndicator.textContent="↗ HOLD ~3 SECONDS FOR BURNOUT";
   },1150);
 }
 wheelButton.addEventListener("pointerdown",e=>{

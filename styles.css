@@ -46,3 +46,15 @@
   .wheel-scene.is-braking:after{animation:none;opacity:0}
   .tyre-smoke{display:none}
 }
+
+
+/* Wheel Lab refinement: clean, borderless presentation. No crosshair,
+   outline box, fake brake ring or full-screen effect. */
+.wheel-scene{border:0;background:radial-gradient(ellipse at 50% 52%,#303630 0%,#191e19 48%,#151913 73%);box-shadow:none}
+.wheel-scene:before{display:none}
+.wheel-scene.is-spinning,.wheel-scene.is-braking{box-shadow:none}
+.wheel-scene.is-braking:after{display:none}
+.wheel-tyre{box-shadow:inset 0 0 0 9px #080b0a,0 13px 32px #05070588}
+.wheel-button{z-index:3}
+.tyre-smoke{z-index:2}
+.wheel-scene .scene-heading,.wheel-scene .wheel-instruction{z-index:4}
