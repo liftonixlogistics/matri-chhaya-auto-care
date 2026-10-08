@@ -48,7 +48,7 @@
       <span class="hero-rail">BUILT FOR YOUR DRIVE —</span>
     </section>
 
-    <div class="ticker" aria-label="Auto care services"><div class="ticker-inner"><span>FOAM WASH <i>✳</i> WHEEL BALANCING <i>✳</i> COMPLETE DETAILING <i>✳</i> CEAT TYRES <i>✳</i> YOUR RIDE. OUR PRIDE. <i>✳</i></span><span aria-hidden="true">FOAM WASH <i>✳</i> WHEEL BALANCING <i>✳</i> COMPLETE DETAILING <i>✳</i> CEAT TYRES <i>✳</i> YOUR RIDE. OUR PRIDE. <i>✳</i></span></div></div>
+    <div class="ticker" id="draggable-ticker" aria-label="Auto care services. Touch and drag left or right to control the scrolling speed." title="Hold and swipe to control this strip"><div class="ticker-inner"><span>FOAM WASH <i>✳</i> WHEEL BALANCING <i>✳</i> COMPLETE DETAILING <i>✳</i> CEAT TYRES <i>✳</i> YOUR RIDE. OUR PRIDE. <i>✳</i></span><span aria-hidden="true">FOAM WASH <i>✳</i> WHEEL BALANCING <i>✳</i> COMPLETE DETAILING <i>✳</i> CEAT TYRES <i>✳</i> YOUR RIDE. OUR PRIDE. <i>✳</i></span></div></div>
 
     <section class="intro section-pad">
       <p class="section-label"><span class="spot"></span> THIS IS MATRI CHHAYA <span class="dash"></span> CARE WITH CHARACTER</p>
@@ -84,7 +84,7 @@
       <p class="section-label"><span class="spot"></span> THE WHEEL LAB <span class="dash"></span> 03 / EXPLORE</p>
       <h2 class="display">ALL ABOUT<br><em>THAT GRIP.</em></h2><p class="wheel-intro">Tap the wheel to spin it. Choose what your car needs.</p>
       <div class="wheel-layout">
-        <div class="wheel-scene"><span class="scene-heading">BUILT TO <b>ROLL.</b></span><button id="spin-wheel" class="wheel-button" aria-label="Tap to spin the wheel"><span class="wheel-tyre"><span class="wheel-rim"><span class="wheel-hub"></span></span></span></button><span class="wheel-instruction">↗ TAP TO SPIN</span></div>
+        <div id="wheel-scene" class="wheel-scene"><span class="scene-heading">BUILT TO <b>ROLL.</b></span><button id="spin-wheel" class="wheel-button" aria-label="Press and hold to spin the wheel; release to brake"><span class="wheel-tyre"><span class="wheel-rim"><span class="wheel-hub"></span></span></span></button><span id="wheel-instruction" class="wheel-instruction" aria-live="polite">↗ PRESS &amp; HOLD TO SPIN</span></div>
         <div class="wheel-info"><div id="wheel-tabs" class="wheel-tabs" aria-label="Wheel service choices"><button class="selected" data-mode="0" aria-pressed="true">01</button><button data-mode="1" aria-pressed="false">02</button><button data-mode="2" aria-pressed="false">03</button><button data-mode="3" aria-pressed="false">04</button></div><span id="wheel-counter" class="wheel-counter">YOUR SELECTED SERVICE / 01</span><h3 id="wheel-name">Wheel Balancing</h3><p id="wheel-copy">A balanced wheel helps make every ride feel smoother.</p><a href="#quote" class="underlink light-link">ASK ABOUT THIS ↗</a></div>
       </div>
     </section>
@@ -120,5 +120,6 @@
     <div class="footer-legal"><span>© 2026 MATRI CHHAYA AUTO CARE</span><span>MADE FOR PEOPLE WHO LOVE THEIR CARS.</span></div>
   </footer>
   <div class="mobile-dock"><a href="#services">SERVICES</a><a href="#wash">TRY THE WASH</a><a class="dock-primary" href="#quote">ENQUIRE ↗</a></div>
+  <div id="burnout-smoke" class="burnout-smoke" aria-hidden="true"><div class="smoke-cloud smoke-cloud-one"></div><div class="smoke-cloud smoke-cloud-two"></div><div class="smoke-cloud smoke-cloud-three"></div><span class="burnout-badge">BURNOUT MODE <small>RELEASE TO BRAKE</small></span></div>
 </body>
 </html>
