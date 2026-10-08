@@ -43,6 +43,12 @@ Edit the relevant row in `src/data/services.js`. That changes both the Services 
 ### Change photos
 Image URLs are currently in `index.html` and in the `background-image` rule for the comparison in `src/styles/site.css`. Replace these with properly licensed photos, ideally compressed and reasonably sized.
 
+### Put the real logo in the preloader
+Open `index.html` and find the `<!-- PRELOADER -->` block just inside `<body>`. Uncomment the `<img class="preloader-logo">` line, point `src` at your logo file (for example `/src/assets/logo.svg`), and delete the two lines marked `PLACEHOLDER`. Nothing else needs changing.
+
+### Change how long the preloader stays up
+Timings are the three constants at the top of `src/scripts/features/preloader.js`: `MINIMUM_VISIBLE_MS` (never flashes shorter than this), `HARD_TIMEOUT_MS` (gives up no matter what), and `FADE_MS` (must match the `.preloader.is-done` transition in the `<style>` block in `index.html`).
+
 ## Important developer rules
 
 - Do not edit the old `script.js` or `styles.css`; those files were replaced.

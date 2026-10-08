@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" class="is-loading">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
@@ -14,8 +14,57 @@
   <link rel="stylesheet" href="/src/styles/responsive.css">
   <link rel="stylesheet" href="/src/styles/interactions.css">
   <script type="module" src="/src/scripts/main.js"></script>
+
+  <!-- ==================== PRELOADER ====================
+       Kept inline on purpose: it must paint before the stylesheets arrive.
+       Behaviour lives in src/scripts/features/preloader.js
+       TO ADD THE LOGO: see the comment in the <body> markup below. -->
+  <style>
+    .is-loading, .is-loading body { overflow: hidden; }
+    .preloader {
+      position: fixed; inset: 0; z-index: 9999;
+      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 22px;
+      background: #090b09; color: #f3f0e8;
+      font-family: "Barlow Condensed", Arial, Helvetica, sans-serif;
+      /* Fail-safe: if JavaScript never runs, the screen still clears itself. */
+      animation: preloader-failsafe 0.4s linear 7s forwards;
+    }
+    .preloader.is-done { opacity: 0; visibility: hidden; transition: opacity .52s ease, visibility 0s linear .52s; }
+    .preloader-mark { display: flex; flex-direction: column; align-items: center; gap: 10px; text-align: center; }
+    .preloader-logo { width: clamp(120px, 26vw, 190px); height: auto; }
+    .preloader-badge { font-size: 34px; color: #ff602c; line-height: 1; animation: preloader-spin 3.4s linear infinite; }
+    .preloader-name { font-size: clamp(34px, 9vw, 54px); font-weight: 800; letter-spacing: .01em; line-height: 1; }
+    .preloader-sub { font-size: 11px; letter-spacing: .36em; color: #a7a9a2; text-transform: uppercase; }
+    .preloader-track { width: min(230px, 54vw); height: 2px; background: rgba(243,240,232,.18); overflow: hidden; }
+    .preloader-fill { display: block; height: 100%; width: 100%; background: #ff602c; transform-origin: left center; animation: preloader-fill 2.6s cubic-bezier(.22,.9,.3,1) forwards; }
+    .preloader-tagline { font-size: 10px; letter-spacing: .3em; color: #a7a9a2; text-transform: uppercase; }
+    @keyframes preloader-fill { from { transform: scaleX(.04); } to { transform: scaleX(1); } }
+    @keyframes preloader-spin { to { transform: rotate(360deg); } }
+    @keyframes preloader-failsafe { to { opacity: 0; visibility: hidden; } }
+    @media (prefers-reduced-motion: reduce) {
+      .preloader, .preloader.is-done { transition: none; animation-duration: .01ms; }
+      .preloader-badge, .preloader-fill { animation: none; }
+      .preloader-fill { transform: scaleX(1); }
+    }
+  </style>
 </head>
 <body id="top">
+  <!-- ==================== PRELOADER ====================
+       TO ADD THE LOGO: delete the two lines marked PLACEHOLDER below and
+       uncomment the <img> line, pointing src at your logo file, e.g.
+       <img class="preloader-logo" src="/src/assets/logo.svg" alt="Matri Chhaya Auto Care">
+       Styles are in the <style> block in <head>. -->
+  <div id="preloader" class="preloader" role="status" aria-label="Loading Matri Chhaya Auto Care">
+    <div class="preloader-mark">
+      <!-- <img class="preloader-logo" src="/src/assets/logo.svg" alt="Matri Chhaya Auto Care"> -->
+      <span class="preloader-badge" aria-hidden="true">✳</span>          <!-- PLACEHOLDER -->
+      <span class="preloader-name">मातृ छाया</span>                      <!-- PLACEHOLDER -->
+      <span class="preloader-sub">Matri Chhaya · Auto Care</span>
+    </div>
+    <span class="preloader-track" aria-hidden="true"><span class="preloader-fill"></span></span>
+    <span class="preloader-tagline">Your Ride. Our Pride.</span>
+  </div>
+
   <header class="header">
     <a href="#top" class="brand" aria-label="Matri Chhaya home">
       <span class="brand-badge" aria-hidden="true">✳</span><span><strong>मातृ छाया</strong><small>MATRI CHHAYA · AUTO CARE</small></span>

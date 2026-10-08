@@ -2,6 +2,7 @@
  * Matri Chhaya — single entry point. No framework or bundler required.
  * Each feature lives in its own file for simple GitHub browser editing.
  */
+import { initPreloader } from "./features/preloader.js";
 import { initNavigation } from "./features/navigation.js";
 import { initMarquee } from "./features/marquee.js";
 import { initScrollReveal } from "./features/reveal.js";
@@ -12,6 +13,7 @@ import { initBeforeAfter } from "./features/before-after.js";
 import { initEnquiry } from "./features/enquiry.js";
 
 // This module is deferred until HTML parsing is complete by the browser.
+initPreloader();
 initNavigation();
 initMarquee();
 initScrollReveal();
