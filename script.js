@@ -145,8 +145,9 @@ canvas.addEventListener("pointermove",e=>{if(washing)erase(e);});
 washAction.addEventListener("click",()=>{if(clean){resetDirt();return;}ctx.clearRect(0,0,canvas.width,canvas.height);clean=true;washStatus.textContent="● SHOWROOM READY";washAction.textContent="TRY AGAIN ↻";});
 new ResizeObserver(resetDirt).observe(canvas);
 
-// Wheel Lab: press and hold to accelerate; release to brake immediately.
-// Smoke appears only after a deliberate hold (2.65 seconds).
+// Wheel lab: hold to accelerate, release to brake immediately.
+// F1-style charcoal-grey tyre puffs stay INSIDE the wheel panel.
+// A tiny Canvas 2D particle renderer starts only after a long hold.
 const modes = [
   ["Wheel Balancing","A balanced wheel helps make every ride feel smoother."],
   ["Wheel Alignment","Give your car the right direction, straight from the start."],
@@ -157,7 +158,8 @@ const wheelButton = get("spin-wheel");
 const wheelScene = get("wheel-scene");
 const wheelIndicator = get("wheel-instruction");
 const wheelTyre = wheelButton.querySelector(".wheel-tyre");
-const smoke = get("burnout-smoke");
+const smokeCanvas = get("tyre-smoke");
+const smokeCtx = smokeCanvas.getContext("2d", { alpha:true });
 let wheelAngle = 17;
 let wheelHolding = false;
 let wheelPointer = null;
@@ -165,75 +167,220 @@ let wheelStartTime = 0;
 let wheelPrevFrame = 0;
 let wheelRaf = 0;
 let wheelBrakeTimer = 0;
-let smokeActive = false;
-const smokeDelay = 2650;
-function wheelAnimate(now) {
-  if (!wheelHolding) return;
-  const elapsed = now - wheelStartTime;
-  const dt = Math.min((now - wheelPrevFrame) / 1000, .05);
-  wheelPrevFrame = now;
-  // The longer the hold, the faster the wheel spins. Cap to prevent
-  // excessive transforms or extreme strobing on low-end phones.
-  const velocity = Math.min(1400, 120 + (elapsed / 1000) * 230);
-  wheelAngle = (wheelAngle + velocity * dt) % 360;
-  wheelTyre.style.transform = "rotate(" + wheelAngle.toFixed(2) + "deg)";
-  if (!smokeActive && elapsed >= smokeDelay && !prefersLessMotion.matches) {
-    smokeActive = true;
-    smoke.classList.add("active");
-    wheelScene.classList.add("is-smoking");
-    wheelIndicator.textContent = "● BURNOUT! RELEASE TO BRAKE";
+const smokeDelay = 2550;
+
+// Pre-render irregular translucent smoke textures ONCE.
+// Small scale noise adds broken, wispy edges instead of flat gradient circles.
+// Each puff is drawn from a cached texture; there's no costly blur per frame.
+function smokeHash(x,y,seed) {
+  let h=(Math.imul(x,374761393)+Math.imul(y,668265263)+Math.imul(seed,1442695041))|0;
+  h=Math.imul(h^(h>>>13),1274126177);
+  return ((h^(h>>>16))>>>0)/4294967295;
+}
+function smokeNoise(x,y,seed) {
+  const a=Math.floor(x), b=Math.floor(y);
+  let fx=x-a,fy=y-b;
+  fx=fx*fx*(3-2*fx);fy=fy*fy*(3-2*fy);
+  const n0=smokeHash(a,b,seed)*(1-fx)+smokeHash(a+1,b,seed)*fx;
+  const n1=smokeHash(a,b+1,seed)*(1-fx)+smokeHash(a+1,b+1,seed)*fx;
+  return n0*(1-fy)+n1*fy;
+}
+function makeSmokeTexture(variant) {
+  const sprite=document.createElement("canvas");
+  sprite.width=sprite.height=72;
+  const ctx=sprite.getContext("2d");
+  const pixels=ctx.createImageData(72,72);
+  const shades=[104,124,146,157];
+  for(let y=0;y<72;y++)for(let x=0;x<72;x++){
+    const nx=(x-35.5)/35.5,ny=(y-35.5)/35.5;
+    const angle=Math.atan2(ny,nx);
+    const rough=0.13*Math.sin(angle*5+variant*2.2)
+      +0.10*Math.cos(angle*8+variant*3.6);
+    const n1=smokeNoise(x/18+variant*2,y/17,variant+1);
+    const n2=smokeNoise(x/7+variant*3,y/8,variant+7);
+    const radius=Math.hypot(nx,ny)/(0.86+rough+(n1-.5)*.27);
+    const body=Math.max(0,Math.min(1,(1.09-radius)*3.1));
+    const haze=Math.max(0,Math.min(1,(1.12-radius)*2.0));
+    const texture=Math.max(.15,Math.min(1,.30+n1*.56+n2*.42));
+    const alpha=Math.round((body*.63+haze*.37)*texture*198);
+    const value=Math.max(55,Math.min(190,shades[variant]+(n1-.5)*40+(n2-.5)*25));
+    const i=(y*72+x)*4;
+    pixels.data[i]=value;
+    pixels.data[i+1]=value+2;
+    pixels.data[i+2]=value+4;
+    pixels.data[i+3]=alpha;
   }
-  wheelRaf = requestAnimationFrame(wheelAnimate);
+  ctx.putImageData(pixels,0,0);
+  return sprite;
+}
+const smokeTextures=smokeCtx ? [0,1,2,3].map(makeSmokeTexture) : [];
+const smokeParticles=[];
+let smokeRunning=false;
+let smokeEmitting=false;
+let smokePrevFrame=0;
+let smokeLastDraw=0;
+let smokeSpawnDebt=0;
+let smokeFrame=0;
+let smokeWidth=0,smokeHeight=0;
+const smokeMaxParticles=74;
+function resizeSmoke() {
+  if(!smokeCtx)return;
+  const r=wheelScene.getBoundingClientRect();
+  if(!r.width||!r.height)return;
+  const dpr=Math.min(window.devicePixelRatio||1,1.5);
+  smokeWidth=r.width;smokeHeight=r.height;
+  smokeCanvas.width=Math.round(r.width*dpr);
+  smokeCanvas.height=Math.round(r.height*dpr);
+  smokeCtx.setTransform(dpr,0,0,dpr,0,0);
+}
+if(smokeCtx){
+  resizeSmoke();
+  new ResizeObserver(resizeSmoke).observe(wheelScene);
+}
+// Both emitters sit by the tyre's lower edges (the contact area).
+// Clouds drift outward/up rather than spreading across the full website.
+function spawnTyrePuff() {
+  const wheelRect=wheelButton.getBoundingClientRect();
+  const sceneRect=wheelScene.getBoundingClientRect();
+  const cx=wheelRect.left-sceneRect.left+wheelRect.width/2;
+  const cy=wheelRect.top-sceneRect.top+wheelRect.height/2;
+  const radius=wheelRect.width/2;
+  const side=Math.random()<.5?-1:1;
+  const size=15+Math.random()*22;
+  smokeParticles.push({
+    x:cx+side*radius*(.61+Math.random()*.16),
+    y:cy+radius*(.60+Math.random()*.16),
+    vx:side*(20+Math.random()*34)+(Math.random()-.5)*10,
+    vy:-26-Math.random()*37,
+    size,age:0,life:850+Math.random()*730,
+    sway:Math.random()*Math.PI*2,
+    spin:(Math.random()-.5)*.6,
+    texture:smokeTextures[Math.floor(Math.random()*smokeTextures.length)],
+    alpha:.63+Math.random()*.26
+  });
+}
+function smokeStep(now) {
+  if(!smokeCtx)return;
+  if(!smokeRunning){return;}
+  const dt=Math.min(Math.max(now-smokePrevFrame,0),50);
+  smokePrevFrame=now;
+  // ~30 fps cap keeps the smartphone GPU and CPU workload low.
+  if(now-smokeLastDraw<29){requestAnimationFrame(smokeStep);return;}
+  smokeLastDraw=now;
+  const elapsed=now-wheelStartTime;
+  if(smokeEmitting){
+    smokeSpawnDebt+=(25+Math.min(14,Math.max(0,(elapsed-smokeDelay)/140)))*dt/1000;
+    while(smokeSpawnDebt>=1 && smokeParticles.length<smokeMaxParticles){
+      spawnTyrePuff();smokeSpawnDebt--;
+    }
+    smokeSpawnDebt=Math.min(smokeSpawnDebt,3);
+  }
+  smokeCtx.clearRect(0,0,smokeWidth,smokeHeight);
+  for(let i=smokeParticles.length-1;i>=0;i--){
+    const p=smokeParticles[i];
+    p.age+=dt;
+    if(p.age>=p.life){smokeParticles.splice(i,1);continue;}
+    const seconds=dt/1000;
+    p.x+=p.vx*seconds;
+    p.y+=p.vy*seconds;
+    p.sway+=seconds*1.9;
+    const t=p.age/p.life;
+    const fadeIn=Math.min(1,p.age/135);
+    const fadeOut=Math.pow(1-t,1.45);
+    const opacity=fadeIn*fadeOut*p.alpha;
+    const grow=p.size*(1+t*.85);
+    smokeCtx.globalAlpha=opacity;
+    smokeCtx.drawImage(p.texture,
+      p.x+Math.sin(p.sway)*2-grow/2,
+      p.y-grow/2,
+      grow, grow*.86);
+  }
+  smokeCtx.globalAlpha=1;
+  if(smokeEmitting||smokeParticles.length){
+    requestAnimationFrame(smokeStep);
+  } else {
+    smokeCtx.clearRect(0,0,smokeWidth,smokeHeight);
+    smokeRunning=false;
+  }
+}
+function startSmoke() {
+  if(!smokeCtx||prefersLessMotion.matches||smokeEmitting)return;
+  smokeEmitting=true;
+  wheelScene.classList.add("is-smoking");
+  wheelIndicator.textContent="● TYRE SMOKE — RELEASE TO BRAKE";
+  if(!smokeRunning){
+    smokeRunning=true;
+    smokePrevFrame=performance.now();
+    smokeLastDraw=0;
+    requestAnimationFrame(smokeStep);
+  }
+}
+function stopSmoke() {
+  smokeEmitting=false;
+  smokeSpawnDebt=0;
+  wheelScene.classList.remove("is-smoking");
+  // Leave a short natural wisp after braking rather than
+  // cutting the smoke off abruptly; no new puffs are created.
+  for(const p of smokeParticles)p.life=Math.min(p.life,p.age+600);
+}
+function wheelAnimate(now) {
+  if(!wheelHolding)return;
+  const elapsed=now-wheelStartTime;
+  const dt=Math.min((now-wheelPrevFrame)/1000,.05);
+  wheelPrevFrame=now;
+  const speed=Math.min(1400,120+(elapsed/1000)*230);
+  wheelAngle=(wheelAngle+speed*dt)%360;
+  wheelTyre.style.transform="rotate("+wheelAngle.toFixed(2)+"deg)";
+  if(elapsed>=smokeDelay)startSmoke();
+  wheelRaf=requestAnimationFrame(wheelAnimate);
 }
 function startWheel() {
-  if (wheelHolding) return;
+  if(wheelHolding)return;
   window.clearTimeout(wheelBrakeTimer);
   wheelScene.classList.remove("is-braking");
   wheelScene.classList.add("is-spinning");
-  wheelHolding = true;
-  wheelStartTime = performance.now();
-  wheelPrevFrame = wheelStartTime;
-  wheelIndicator.textContent = "● HOLDING — ACCELERATING";
-  wheelRaf = requestAnimationFrame(wheelAnimate);
+  wheelHolding=true;
+  wheelStartTime=performance.now();
+  wheelPrevFrame=wheelStartTime;
+  wheelIndicator.textContent="● HOLDING — ACCELERATING";
+  wheelRaf=requestAnimationFrame(wheelAnimate);
 }
 function stopWheel() {
-  if (!wheelHolding) return;
-  wheelHolding = false;
-  cancelAnimationFrame(wheelRaf); // Brake on release; no residual spin.
-  smokeActive = false;
-  smoke.classList.remove("active");
-  wheelScene.classList.remove("is-spinning","is-smoking");
+  if(!wheelHolding)return;
+  wheelHolding=false;
+  cancelAnimationFrame(wheelRaf);
+  stopSmoke();
+  wheelScene.classList.remove("is-spinning");
   wheelScene.classList.add("is-braking");
-  wheelIndicator.textContent = "✓ BRAKED — PRESS & HOLD AGAIN";
-  wheelBrakeTimer = window.setTimeout(() => {
+  wheelIndicator.textContent="✓ BRAKED — PRESS & HOLD AGAIN";
+  wheelBrakeTimer=window.setTimeout(()=>{
     wheelScene.classList.remove("is-braking");
-    wheelIndicator.textContent = "↗ PRESS & HOLD TO SPIN";
-  }, 1150);
+    wheelIndicator.textContent="↗ PRESS & HOLD TO SPIN";
+  },1150);
 }
-wheelButton.addEventListener("pointerdown", e => {
-  if (e.pointerType === "mouse" && e.button !== 0) return;
-  if (wheelPointer !== null) return;
-  wheelPointer = e.pointerId;
+wheelButton.addEventListener("pointerdown",e=>{
+  if(e.pointerType==="mouse"&&e.button!==0)return;
+  if(wheelPointer!==null)return;
+  wheelPointer=e.pointerId;
   wheelButton.setPointerCapture(e.pointerId);
   startWheel();
 });
-function endWheelPointer(e) {
-  if (wheelPointer !== e.pointerId) return;
-  wheelPointer = null;
+function endWheelPointer(e){
+  if(wheelPointer!==e.pointerId)return;
+  wheelPointer=null;
   stopWheel();
 }
 wheelButton.addEventListener("pointerup",endWheelPointer);
 wheelButton.addEventListener("pointercancel",endWheelPointer);
 wheelButton.addEventListener("lostpointercapture",endWheelPointer);
-// Keyboard users get the same press-and-hold interaction.
 wheelButton.addEventListener("keydown",e=>{
-  if ((e.key === " " || e.key === "Enter") && !e.repeat) {
+  if((e.key===" "||e.key==="Enter")&&!e.repeat){
     e.preventDefault();
     startWheel();
   }
 });
 wheelButton.addEventListener("keyup",e=>{
-  if (e.key === " " || e.key === "Enter") {
+  if(e.key===" "||e.key==="Enter"){
     e.preventDefault();
     stopWheel();
   }
@@ -241,17 +388,22 @@ wheelButton.addEventListener("keyup",e=>{
 wheelButton.addEventListener("blur",stopWheel);
 window.addEventListener("blur",stopWheel);
 document.addEventListener("visibilitychange",()=>{
-  if (document.hidden) stopWheel();
+  if(document.hidden){
+    stopWheel();
+    stopSmoke();
+    smokeParticles.length=0;
+    if(smokeCtx)smokeCtx.clearRect(0,0,smokeWidth,smokeHeight);
+  }
 });
 document.querySelectorAll("[data-mode]").forEach(btn=>btn.addEventListener("click",()=>{
-  const n = Number(btn.dataset.mode);
+  const n=Number(btn.dataset.mode);
   document.querySelectorAll("[data-mode]").forEach(b=>{
     b.classList.toggle("selected",b===btn);
     b.setAttribute("aria-pressed",String(b===btn));
   });
-  get("wheel-counter").textContent = "YOUR SELECTED SERVICE / 0" + (n+1);
-  get("wheel-name").textContent = modes[n][0];
-  get("wheel-copy").textContent = modes[n][1];
+  get("wheel-counter").textContent="YOUR SELECTED SERVICE / 0"+(n+1);
+  get("wheel-name").textContent=modes[n][0];
+  get("wheel-copy").textContent=modes[n][1];
 }));
 
 // The before / after is transparently labeled as a visual demonstration.
