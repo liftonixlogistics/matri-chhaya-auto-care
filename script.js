@@ -156,7 +156,6 @@ const modes = [
 ];
 const wheelButton = get("spin-wheel");
 const wheelScene = get("wheel-scene");
-const wheelIndicator = get("wheel-instruction");
 const wheelTyre = wheelButton.querySelector(".wheel-tyre");
 const smokeCanvas = get("tyre-smoke");
 const smokeCtx = smokeCanvas.getContext("2d", { alpha:true });
@@ -167,7 +166,8 @@ let wheelStartTime = 0;
 let wheelPrevFrame = 0;
 let wheelRaf = 0;
 let wheelBrakeTimer = 0;
-const smokeDelay = 2900;
+const smokeDelay = 1450; // visible smoke within two seconds
+const heatDelay = 3000;  // orange-red tyre heat after three seconds
 
 // Pre-render irregular translucent smoke textures ONCE.
 // Small scale noise adds broken, wispy edges instead of flat gradient circles.
@@ -190,20 +190,21 @@ function makeSmokeTexture(variant) {
   sprite.width=sprite.height=72;
   const ctx=sprite.getContext("2d");
   const pixels=ctx.createImageData(72,72);
-  const shades=[91,107,121,135];
+  const shades=[146,165,178,188];
   for(let y=0;y<72;y++)for(let x=0;x<72;x++){
     const nx=(x-35.5)/35.5,ny=(y-35.5)/35.5;
     const angle=Math.atan2(ny,nx);
-    const rough=0.13*Math.sin(angle*5+variant*2.2)
-      +0.10*Math.cos(angle*8+variant*3.6);
+    const rough=0.11*Math.sin(angle*5+variant*2.2)
+      +0.09*Math.cos(angle*8+variant*3.6);
     const n1=smokeNoise(x/18+variant*2,y/17,variant+1);
     const n2=smokeNoise(x/7+variant*3,y/8,variant+7);
     const radius=Math.hypot(nx,ny)/(0.86+rough+(n1-.5)*.27);
     const body=Math.max(0,Math.min(1,(1.09-radius)*3.1));
     const haze=Math.max(0,Math.min(1,(1.12-radius)*2.0));
     const texture=Math.max(.15,Math.min(1,.30+n1*.56+n2*.42));
-    const alpha=Math.round((body*.63+haze*.37)*texture*198);
-    const value=Math.max(55,Math.min(190,shades[variant]+(n1-.5)*40+(n2-.5)*25));
+    const alpha=Math.round(Math.min(255,(body*.75+haze*.25)*(.63+texture*.4)*255));
+    const rim=radius>.78 && radius<1.07 ? 23 : 0;
+    const value=Math.max(95,Math.min(219,shades[variant]+rim+(n1-.5)*30+(n2-.5)*22));
     const i=(y*72+x)*4;
     pixels.data[i]=value;
     pixels.data[i+1]=value+2;
@@ -221,7 +222,7 @@ let smokePrevFrame=0;
 let smokeLastDraw=0;
 let smokeSpawnDebt=0;
 let smokeWidth=0,smokeHeight=0;
-const smokeMaxParticles=52;
+const smokeMaxParticles=110;
 function resizeSmoke() {
   if(!smokeCtx)return;
   const r=wheelScene.getBoundingClientRect();
@@ -246,18 +247,20 @@ function spawnTyrePuff() {
   const cx=wheelRect.left-sceneRect.left+wheelRect.width/2;
   const cy=wheelRect.top-sceneRect.top+wheelRect.height/2;
   const radius=wheelRect.width/2;
-  const sizeScale=Math.max(.74,Math.min(1.2,sceneRect.width/390));
-  const size=(10+Math.random()*13)*sizeScale;
+  const sizeScale=Math.max(.73,Math.min(1.18,sceneRect.width/390));
+  // A fixed contact point below the tyre, on the lower-right edge.
+  // Smoke flows in one direction only: right and gently upwards.
   smokeParticles.push({
-    // Emission remains at ONE point under the bottom-right of the tyre.
-    x:cx+radius*.35+(Math.random()-.5)*5,
-    y:cy+radius*.96+(Math.random()-.5)*4,
-    vx:(29+Math.random()*33)*sizeScale,
-    vy:-(3+Math.random()*14)*sizeScale,
-    size,age:0,life:820+Math.random()*680,
+    x:cx+radius*.46+(Math.random()-.5)*13*sizeScale,
+    y:cy+radius*.87+(Math.random()-.5)*9*sizeScale,
+    vx:(38+Math.random()*47)*sizeScale,
+    vy:(-9-Math.random()*19)*sizeScale,
+    size:(24+Math.random()*26)*sizeScale,
+    age:0,
+    life:1350+Math.random()*750,
     sway:Math.random()*Math.PI*2,
     texture:smokeTextures[Math.floor(Math.random()*smokeTextures.length)],
-    alpha:.69+Math.random()*.23
+    alpha:.8+Math.random()*.19
   });
 }
 function smokeStep(now) {
@@ -271,7 +274,7 @@ function smokeStep(now) {
   smokeLastDraw=now;
   const elapsed=now-wheelStartTime;
   if(smokeEmitting){
-    smokeSpawnDebt+=(23+Math.min(8,Math.max(0,(elapsed-smokeDelay)/400)))*dt/1000;
+    smokeSpawnDebt+=(64+Math.min(24,Math.max(0,(elapsed-smokeDelay)/90)))*dt/1000;
     while(smokeSpawnDebt>=1 && smokeParticles.length<smokeMaxParticles){
       spawnTyrePuff();smokeSpawnDebt--;
     }
@@ -286,17 +289,17 @@ function smokeStep(now) {
     const t=p.age/p.life;
     // Tiny random turbulence while the cloud drifts away from the tyre.
     p.x+=(p.vx+(Math.sin(p.sway)*6))*seconds;
-    p.y+=(p.vy-18*t)*seconds;
+    p.y+=(p.vy-23*t)*seconds;
     p.sway+=seconds*2.1;
-    const fadeIn=Math.min(1,p.age/95);
-    const fadeOut=Math.pow(Math.max(0,1-t),1.65);
+    const fadeIn=Math.min(1,p.age/55);
+    const fadeOut=Math.pow(Math.max(0,1-t),1.12);
     const opacity=fadeIn*fadeOut*p.alpha;
-    const grow=p.size*(1+t*1.45);
+    const grow=p.size*(1+t*1.95);
     smokeCtx.globalAlpha=opacity;
     smokeCtx.drawImage(p.texture,
-      p.x+Math.sin(p.sway)*1.7-grow/2,
+      p.x+Math.sin(p.sway)*2.5-grow/2,
       p.y-grow/2,
-      grow, grow*.84);
+      grow, grow*.91);
   }
   smokeCtx.globalAlpha=1;
   if(smokeEmitting||smokeParticles.length){
@@ -310,10 +313,8 @@ function startSmoke() {
   if(!smokeCtx||prefersLessMotion.matches||smokeEmitting)return;
   smokeEmitting=true;
   smokeSpawnDebt=0;
-  spawnTyrePuff();
-  spawnTyrePuff();
+  for(let n=0;n<7;n++)spawnTyrePuff();
   wheelScene.classList.add("is-smoking");
-  wheelIndicator.textContent="● TYRE SMOKE — RELEASE TO BRAKE";
   if(!smokeRunning){
     smokeRunning=true;
     smokePrevFrame=performance.now();
@@ -338,6 +339,7 @@ function wheelAnimate(now) {
   wheelAngle=(wheelAngle+speed*dt)%360;
   wheelTyre.style.transform="rotate("+wheelAngle.toFixed(2)+"deg)";
   if(elapsed>=smokeDelay)startSmoke();
+  if(elapsed>=heatDelay && !wheelScene.classList.contains("is-hot"))wheelScene.classList.add("is-hot");
   wheelRaf=requestAnimationFrame(wheelAnimate);
 }
 function startWheel() {
@@ -348,7 +350,6 @@ function startWheel() {
   wheelHolding=true;
   wheelStartTime=performance.now();
   wheelPrevFrame=wheelStartTime;
-  wheelIndicator.textContent="● HOLDING — ACCELERATING";
   wheelRaf=requestAnimationFrame(wheelAnimate);
 }
 function stopWheel() {
@@ -356,12 +357,10 @@ function stopWheel() {
   wheelHolding=false;
   cancelAnimationFrame(wheelRaf);
   stopSmoke();
-  wheelScene.classList.remove("is-spinning");
+  wheelScene.classList.remove("is-spinning","is-hot");
   wheelScene.classList.add("is-braking");
-  wheelIndicator.textContent="✓ BRAKED — PRESS & HOLD AGAIN";
   wheelBrakeTimer=window.setTimeout(()=>{
     wheelScene.classList.remove("is-braking");
-    wheelIndicator.textContent="↗ HOLD ~3 SECONDS FOR BURNOUT";
   },1150);
 }
 wheelButton.addEventListener("pointerdown",e=>{
