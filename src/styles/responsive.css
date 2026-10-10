@@ -31,6 +31,20 @@
     padding:85px 22px
   }
 
+  .preloader-logo {
+    width:min(360px,88vw)
+  }
+
+  .preloader-speedline {
+    width:92vw;
+    height:48px
+  }
+
+  .preloader-track {
+    bottom:24%;
+    width:64vw
+  }
+
   .section-label {
     font-size:9px;
     gap:8px;
@@ -570,6 +584,10 @@
     animation-duration:.01ms!important;
     transition-duration:.01ms!important;
     scroll-behavior:auto!important
+  }
+
+  .preloader {
+    transition:opacity .12s ease,visibility .12s ease
   }
 
   .reveal {

@@ -16,6 +16,16 @@
   <script type="module" src="/src/scripts/main.js"></script>
 </head>
 <body id="top">
+  <div class="preloader" aria-hidden="true">
+    <div class="preloader-speedline"></div>
+    <img class="preloader-logo" src="/src/assets/preloader-logo.png" alt="">
+    <div class="preloader-track"><span></span></div>
+  </div>
+  <script>
+    window.setTimeout(function () {
+      document.documentElement.classList.add("preloader-done");
+    }, 1900);
+  </script>
   <header class="header">
     <a href="#top" class="brand" aria-label="Matri Chhaya home">
       <span class="brand-badge" aria-hidden="true">✳</span><span><strong>मातृ छाया</strong><small>MATRI CHHAYA · AUTO CARE</small></span>
