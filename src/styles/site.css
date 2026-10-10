@@ -187,14 +187,6 @@ em {
   line-height:1
 }
 
-.brand-logo {
-  display:block;
-  width:min(296px,42vw);
-  height:auto;
-  max-height:58px;
-  object-fit:contain
-}
-
 .brand-badge {
   width:41px;
   height:41px;

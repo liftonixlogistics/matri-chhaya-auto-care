@@ -50,11 +50,6 @@
     padding:0 22px
   }
 
-  .brand-logo {
-    width:min(214px,58vw);
-    max-height:45px
-  }
-
   .brand-badge {
     width:35px;
     height:35px;
